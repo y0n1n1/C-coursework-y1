@@ -1,0 +1,568 @@
+=============================================================================
+STAGE 5 REQUIREMENTS AND SPECIFICATIONS
+COMP0002 Robot Arena Coursework - UCL CS Year 1
+=============================================================================
+
+Based on official course documents:
+- assignment.txt
+- FAQ.txt
+- feedback.txt
+
+This file contains ALL explicit requirements, assumptions, and constraints
+for Stage 5, grounded in direct quotes from course materials.
+
+=============================================================================
+STAGE 5 OFFICIAL SPECIFICATION
+=============================================================================
+
+DIRECT QUOTE FROM assignment.txt (Lines 169-172):
+
+"Stage 5 (challenge): Write the code to generate an arena with multiple
+obstacles making a circular, or other shape, open area in the middle. The
+circular example shown above might be used as an example. Then add one or
+more markers. The robot should then collect all the markers, and stop once
+they have been collected."
+
+=============================================================================
+STAGE 5 CORE REQUIREMENTS (Extracted from Specification)
+=============================================================================
+
+REQUIREMENT 1: SHAPED OBSTACLE GENERATION
+✓ Generate arena with obstacles forming a SHAPE
+✓ Circular open area in middle (primary example)
+✓ "or other shape" - alternative shapes permitted
+✓ Multiple obstacles used to create the shape
+
+REQUIREMENT 2: MARKER PLACEMENT
+✓ Add "one or more markers"
+✓ Implied: markers should be in the open (playable) area
+✓ Markers must be reachable by robot
+
+REQUIREMENT 3: COLLECTION BEHAVIOR
+✓ Robot should "collect all the markers"
+✓ Use pickUpMarker() function (from API specification)
+
+REQUIREMENT 4: TERMINATION CONDITION
+✓ Robot should "stop once they have been collected"
+✓ KEY DIFFERENCE from Stage 4: NO delivery to corner
+✓ Program terminates after all markers collected
+
+=============================================================================
+STAGE 5 IMPLICIT REQUIREMENTS (Derived from General Specification)
+=============================================================================
+
+From assignment.txt Lines 95-146 - General Program Specification:
+
+ARENA STRUCTURE:
+✓ Arena is "surrounded by a solid wall" (Line 97)
+✓ "square tiles" layout (Line 98)
+✓ Robot moves "from the centre of one tile to the centre of the tile in front" (Line 98-99)
+✓ "Obstacles can be positioned anywhere within the arena" (Line 101)
+✓ "markers can be positioned anywhere that is not occupied by an obstacle" (Line 101-102)
+✓ "Both obstacles and markers occupy one tile each" (Line 103)
+✓ "multiple obstacles and markers can be on adjacent tiles" (Line 103)
+
+DRAWING LAYERS (Lines 112-118):
+✓ "Walls, obstacles and any other fixed items are drawn once on the background" (Line 113-114)
+✓ "Only the robot is drawn on the foreground" (Line 115-116)
+✓ "by repeatedly clearing and redisplaying the robot it appears to move around creating an animation effect" (Line 116-117)
+✓ "Updating the foreground does not affect the background" (Line 117)
+✓ "the background does not need to be redrawn when the robot moves" (Line 117-118)
+
+ROBOT API (Lines 126-142):
+Must implement exactly 8 functions:
+1. void forward(...)
+2. void left(...)
+3. void right(...)
+4. int atMarker(...)
+5. int canMoveForward(...)
+6. void pickUpMarker(...)
+7. void dropMarker(...)
+8. int markerCount(...)
+
+ROBOT CONSTRAINTS (Lines 129-146):
+✓ "If there is a wall or obstacle in front of the robot it does not move" (Line 130)
+✓ "A robot can carry any number of markers" (Line 139)
+✓ "The robot cannot move diagonally or turn through any other angle than 90 degrees" (Line 144)
+✓ "The robot can have a memory, for example to build a map of the arena" (Line 145)
+
+=============================================================================
+STAGE 5 DESIGN ASSUMPTIONS (From Context)
+=============================================================================
+
+SHAPE GENERATION:
+
+ASSUMPTION 1: "Circular" means obstacles placed OUTSIDE a circular area
+- Text: "obstacles making a circular...open area" (Line 169)
+- Interpretation: Obstacles form the boundary, center is playable
+- Implementation: Use distance formula from center point
+
+ASSUMPTION 2: "or other shape" permits alternative patterns
+- Text: "circular, or other shape" (Line 169)
+- Interpretation: Diamond, ellipse, star, etc. are valid
+- Constraint: Shape must have clear "open area in the middle"
+
+ASSUMPTION 3: Shape parameters are program-determined
+- No specification for user input of shape type
+- Reasonable: Calculate center as (width/2, height/2)
+- Reasonable: Calculate radius as min(width, height) / 3
+
+MARKER PLACEMENT:
+
+ASSUMPTION 4: Markers must be inside the open area
+- Text: "open area in the middle. Then add one or more markers" (Line 169-171)
+- Interpretation: Markers placed only in playable (non-obstacle) region
+- Implementation: Check tile is inside shape AND not an obstacle
+
+ASSUMPTION 5: Marker count is program-determined
+- Text: "one or more markers" (Line 171)
+- Stage 4 used: 3 + rand() % 5 (3-7 markers)
+- Reasonable to maintain similar range for Stage 5
+
+ROBOT BEHAVIOR:
+
+ASSUMPTION 6: Robot starts in playable area
+- General requirement: "random position...inside the arena" (Line 155)
+- For shaped arena: Start must be inside the open area
+- Implementation: Check starting position is inside shape
+
+ASSUMPTION 7: "stop once collected" means immediate termination
+- Text: "stop once they have been collected" (Line 171-172)
+- Interpretation: No delivery phase, stop at last marker location
+- Implementation: Check countMarkers() == 0, then exit exploration
+
+=============================================================================
+CODE QUALITY REQUIREMENTS (From assignment.txt Lines 19-33)
+=============================================================================
+
+GRADING CONTEXT (Lines 11-18):
+"50-59: satisfactory...code compiles and runs, implements a reasonable subset
+of the specification, has more or less the right functionality and has a
+reasonable design using functions."
+
+"60-69 and 70-79 represent correspondingly better and very good programs"
+
+"80-89 means a really outstanding program"
+
+"90+ is reserved for something exceptional"
+
+EXPLICIT QUALITY CRITERIA (Lines 19-20):
+"To get a mark of 70 or better you do need to submit a really very good
+program. Credit will be given for using the C language properly, novelty,
+as well as quality."
+
+SPECIFIC QUALITY FACTORS (Lines 22-30):
+✓ "Proper declaration, definition and use of functions, variables and data structures"
+✓ "The layout and presentation of the source code"
+✓ "Appropriate selection of variable and function names"
+✓ "Appropriate use of comments" - "should add information to the source code, not duplicate"
+✓ "As much as possible your code should be fully readable without having to add comments"
+✓ "Selection of a suitable design to provide an effective solution"
+
+KEY PRINCIPLE (Lines 32-33):
+"Clean straightforward and working code, making good use of functions, is
+considered better than longer and more complex but poorly organised code."
+
+=============================================================================
+DEVELOPMENT GUIDANCE (From assignment.txt Lines 36-49)
+=============================================================================
+
+CRITICAL GUIDANCE (Lines 36-38):
+"• Keep things straightforward!
+• Keep things straightforward! (Very important so it is repeated!)
+• Straightforward does not mean trivial."
+
+DESIGN PROCESS (Lines 39-46):
+✓ "First brainstorm/doodle/sketch to get a feel for the code"
+✓ "Don't rush into writing C code if you don't fully understand what variables or functions are needed"
+✓ "How is the behaviour of the program implemented in terms of functions calling each other?"
+✓ "Role play or talk through the sequence of function calls"
+✓ "Are your functions short and cohesive?"
+
+GETTING STARTED (Lines 48-49):
+"Can't get started? Do a subset of the problem or invent a simpler version,
+and work on that to see how it goes. Then return to the more complex problem."
+
+=============================================================================
+TECHNICAL CONSTRAINTS (From assignment.txt Lines 82-93)
+=============================================================================
+
+COMPILATION (Line 83-84):
+"Your code must compile with the gcc or clang compilers and should only use
+the standard C libraries that come with gcc or clang, plus the graphics.h
+and graphics.c files that come with the drawing app."
+
+PROHIBITED (Lines 85-87):
+✓ "You cannot use any other libraries or addons"
+✓ "Do not use any platform specific headers files or libraries (e.g., sys/windows.h)"
+✓ "Do not modify the graphics.h or graphics.c files"
+
+FILE ORGANIZATION (Lines 92-93):
+"Your source code can, and really should, make use of multiple .h and .c files.
+You don't need to put all your code in a single source file!"
+
+=============================================================================
+FUNCTION LENGTH GUIDANCE (From feedback.txt Lines 48-65)
+=============================================================================
+
+FUNCTION SIZE (Lines 48-51):
+"Keep functions cohesive and short. Cohesive means that the function performs
+one focussed piece of behaviour. Short typically means less than 10-15 lines
+of source code, but there is not absolute number. It should always be possible
+to easily see all of a function in your editor window without needing to scroll."
+
+FUNCTION PURPOSE (Lines 52-57):
+"The purpose of one distinct piece of behaviour depends on the kind of function.
+A basic function carries out one specific thing, such as calculating a value,
+fetching a value from a data structure or getting some input. A control function
+will carry out a slice of behaviour primarily by calling more basic functions,
+but does not attempt to implement all the behaviour itself."
+
+REFACTORING LONG FUNCTIONS (Lines 58-65):
+"If a function gets too long it will benefit from sections of code being removed
+into shorter functions and replaced by a function call. In particular, where
+comments have been used to explain a section of code in a long function, it
+would be much better to extract the code into a well-named short function, with
+the name of the function in the function call replacing the need to have the
+comment. This is called the Extract Function refactoring."
+
+=============================================================================
+COMPILATION WARNING REQUIREMENTS (From feedback.txt Lines 84-93)
+=============================================================================
+
+WARNINGS MUST BE ADDRESSED (Lines 84-86):
+"If the compiler displays warning messages when compiling your code, don't
+ignore them! A warning will not prevent the code being compiled and run, but
+often means that your code has one or more problems and can be unreliable
+when run."
+
+RECOMMENDED COMPILATION FLAGS (Lines 87-93):
+"Depending on which version of gcc or clang you are using, you may not see
+warning messages by default but can enable all warnings using the -Wall flag"
+
+"You can also turn warnings into errors by adding the -Werror flag:
+gcc -Wall -Werror program.c
+This is also a good way of finding unused variables."
+
+=============================================================================
+BACKGROUND LAYER REQUIREMENTS (From feedback.txt Lines 203-208)
+=============================================================================
+
+CRITICAL DRAWING RULE (Lines 203-205):
+"The background layer in a drawing program only needs to be drawn once to
+display the arena walls, obstacles and tiles. The robot and any other moving
+or temporary features are drawn on the foreground layer, leaving the
+background alone."
+
+PERFORMANCE ISSUE (Lines 205-208):
+"If you find you are redrawing the background multiple times then review
+how you are trying to display the robot animation. Redrawing the background
+too frequently will also cause the window to appear to start flickering."
+
+=============================================================================
+COMMENT REQUIREMENTS (From FAQ.txt Lines 27-36)
+=============================================================================
+
+COMMENT PHILOSOPHY (Lines 27-29):
+"Comments should be kept minimal and should always add information that is
+not apparent from reading the code. The code itself should be as readable
+as possible, with variables and functions having clear descriptive names,
+and good layout used."
+
+WHEN TO COMMENT (Lines 31-35):
+"You should consider comments for:
+- References/citations to other work you are making use of.
+- Where necessary, providing more information about the design or use of an
+  algorithm, minimising the dependencies on specific lines or versions of code.
+- If you think a comment is needed to explain a complicated section of code,
+  then make the code more readable!"
+
+PROHIBITED COMMENTS (Line 36):
+"Never include comments like 'this is a variable called length', or any that
+repeat what the code says. Don't provide big multi-line blocks of comments,
+or use comments to break up source code files into sections (use multiple
+source code files instead)."
+
+=============================================================================
+ANIMATION REQUIREMENTS (From FAQ.txt Lines 14-15)
+=============================================================================
+
+SLEEP FUNCTION (Lines 14-15):
+"Use the sleep function: void sleep(int milliseconds). Calling the function
+will pause the animation for the number of milliseconds specified, e.g.,
+sleep(1000) will sleep for 1 second (1000 milliseconds). Sleeping for
+100-300 milliseconds is probably good enough, as you still want the robot
+to move fairly quickly."
+
+=============================================================================
+RESILIENCE REQUIREMENTS (From assignment.txt Lines 166-168)
+=============================================================================
+
+STAGE 4 RESILIENCE (applicable to Stage 5):
+"The robot algorithm should be as resilient as possible, such that the robot
+cannot get stuck in a never-ending cycle of movement due to the way that
+obstacles are positioned."
+
+INTERPRETATION FOR STAGE 5:
+✓ Pathfinding must handle circular/shaped obstacle patterns
+✓ Must avoid infinite loops even with constrained playable area
+✓ Should handle cases where shape creates narrow passages
+✓ Existing BFS pathfinding satisfies this requirement
+
+=============================================================================
+STAGE 5 SPECIFIC DESIGN DECISIONS (Derived from Requirements)
+=============================================================================
+
+DECISION 1: SHAPE ALGORITHM
+Requirement: "circular, or other shape, open area"
+Decision: Implement parameterized shape system
+- SHAPE_CIRCLE using distance formula: (dx² + dy²) <= radius²
+- SHAPE_DIAMOND using Manhattan distance: |dx| + |dy| <= radius
+Justification:
+- "or other shape" explicitly permits alternatives
+- Parameterization shows advanced design thinking
+- Single isInsideShape() function handles both
+
+DECISION 2: SHAPE PARAMETERS
+Requirement: "open area in the middle"
+Decision:
+- Center: width/2, height/2 (arena midpoint)
+- Radius: min(width, height) / 3 (balanced playability)
+Justification:
+- No specification provided for shape size
+- 1/3 radius gives ~50% playable area
+- Scales with arena size (12-18 dimensions)
+
+DECISION 3: MARKER PLACEMENT
+Requirement: "Then add one or more markers"
+Decision: Place markers only inside shaped area
+- Rejection sampling: random (x,y), check isInsideShape()
+- Failsafe: max 100 attempts per marker
+- Count: 3 + rand() % 5 (3-7 markers, consistent with Stage 4)
+Justification:
+- Markers must be reachable (in open area)
+- "Then add" implies after shape generation
+- Rejection sampling is simple and reliable
+
+DECISION 4: ROBOT START POSITION
+Requirement: "random position...inside the arena" (Stage 2)
+Decision: Use existing initRobot() - already ensures non-obstacle start
+- For shaped arena, most positions will be in open area naturally
+- BFS pathfinding handles edge cases if robot starts near obstacles
+Justification:
+- No specific Stage 5 requirement for start position
+- Existing random placement works for shaped arena
+
+DECISION 5: TERMINATION LOGIC
+Requirement: "stop once they have been collected"
+Decision:
+- Add check: if (countMarkers(arena, w, h) == 0) break;
+- Remove deliverToCorner() call from runSimulation()
+Justification:
+- Explicit requirement: "stop once collected" not "deliver to corner"
+- Clean termination at last marker location
+- Matches Stage 5 specification exactly
+
+DECISION 6: OBSTACLE COUNT
+Requirement: "multiple obstacles making a [shape]"
+Decision: Fill entire outside-of-shape area with obstacles
+- For circular arena: all tiles where distance > radius
+- Creates solid obstacle boundary around open area
+Justification:
+- "making a circular...open area" implies obstacles define the shape
+- Solid boundary ensures shape is visually clear
+- More impressive than sparse obstacle placement
+
+=============================================================================
+STAGE 5 SUCCESS CRITERIA
+=============================================================================
+
+FUNCTIONAL REQUIREMENTS:
+✓ Arena displays with obstacles forming recognizable shape (circular or other)
+✓ Open area is clearly visible in the middle
+✓ Markers appear inside open area only
+✓ Robot explores and collects all markers
+✓ Robot stops immediately after last marker collected (no delivery)
+✓ Program terminates cleanly
+
+CODE QUALITY REQUIREMENTS:
+✓ All functions <15 lines (from feedback.txt guidance)
+✓ Compilation with gcc -Wall -Werror produces zero warnings
+✓ Functions are cohesive (single clear purpose)
+✓ Variable and function names are descriptive
+✓ Minimal comments, code is self-documenting
+✓ Background drawn once, foreground updated for robot animation
+✓ Multiple .c/.h files used for organization
+✓ No unused variables or functions
+✓ No commented-out code
+
+NOVELTY REQUIREMENTS (for 70+ marks):
+From assignment.txt Line 20: "Credit will be given for using the C language
+properly, novelty, as well as quality."
+
+Evidence of novelty:
+✓ Parameterized shape system (extensible design)
+✓ Shape-aware marker placement (intelligent algorithm)
+✓ Clean integration with existing pathfinding (demonstrates understanding)
+
+GRADE TARGET ALIGNMENT:
+
+70-79 (Very Good):
+- All stages complete
+- Clean code, all functions short
+- Good algorithm implementation
+- Zero warnings
+
+80-89 (Really Outstanding):
+- All of above PLUS
+- Novel features beyond requirements
+- Exceptional code organization
+- Deep understanding demonstrated
+- Professional-quality implementation
+
+90+ (Exceptional):
+- All of above PLUS
+- Multiple significant novel contributions
+- Flawless execution across all criteria
+- Used sparingly, must be fully justified
+
+=============================================================================
+STAGE 5 TESTING REQUIREMENTS
+=============================================================================
+
+VISUAL VERIFICATION:
+✓ Circular (or other) shape is clearly recognizable
+✓ Open area is in the center
+✓ Markers visible inside open area
+✓ Robot animation is smooth (100-300ms sleep)
+✓ No background flickering
+
+FUNCTIONAL TESTING:
+✓ Robot reaches and collects all markers
+✓ Robot stops after last marker (does not continue exploring)
+✓ Program terminates cleanly (no segfault, no infinite loop)
+✓ Works with various arena sizes (12-18)
+✓ Works with various marker counts (1-7)
+
+COMPILATION TESTING:
+✓ gcc -Wall -Werror main.c robot.c arena.c pathfinding.c graphics.c
+✓ Zero warnings produced
+✓ Zero errors produced
+✓ Executable runs successfully
+
+=============================================================================
+PROHIBITED PRACTICES (From All Documents)
+=============================================================================
+
+CODE ORGANIZATION:
+❌ Putting all code in main() (feedback.txt Line 191)
+❌ Putting function definitions in .h files (feedback.txt Line 171)
+❌ Long functions >15 lines that could be decomposed (feedback.txt Line 48)
+❌ Commented-out code (feedback.txt Line 73)
+❌ Unused variables or functions (feedback.txt Line 72)
+
+COMMENTS:
+❌ Comments that duplicate code (FAQ.txt Line 36)
+❌ Comments like "this is a variable" (FAQ.txt Line 36)
+❌ Big multi-line comment blocks (FAQ.txt Line 36)
+
+COMPILATION:
+❌ Ignoring compiler warnings (feedback.txt Line 84)
+❌ Using additional libraries (FAQ.txt Line 38)
+❌ Modifying graphics.h or graphics.c (assignment.txt Line 90)
+❌ Platform-specific headers (assignment.txt Line 87)
+
+DRAWING:
+❌ Redrawing background multiple times (feedback.txt Line 205)
+❌ Drawing robot on background layer (assignment.txt Line 115)
+
+=============================================================================
+SUBMISSION REQUIREMENTS (From assignment.txt Lines 50-73)
+=============================================================================
+
+ZIP FILE (Lines 55-62):
+✓ Name: COMP0002CW1.zip (exact name required)
+✓ Contains: C source files (.c, .h)
+✓ Contains: readMe file (1 page max, plain text or markdown)
+✓ Contains: Any data/image files needed
+✓ Does NOT contain: .o files, executables (.out, .exe)
+✓ Does NOT contain: graphics.h, graphics.c (provided by course)
+
+README CONTENTS (Lines 63-67):
+✓ "A concise description of what the program does"
+✓ "You might use one or two (small) screenshots"
+✓ "The command(s) needed to compile and run the program"
+✓ "This should be 1 page at the most"
+
+ANONYMOUS MARKING (Lines 71-73):
+❌ "don't include your name or student number in the files submitted"
+✓ "Moodle submission details are used...to determine actual identities after marking"
+
+=============================================================================
+STAGE 5 IMPLEMENTATION CHECKLIST
+=============================================================================
+
+SHAPE GENERATION:
+[ ] Implement ShapeType enum (CIRCLE, DIAMOND, etc.)
+[ ] Implement calculateShapeParams(w, h, *cx, *cy, *radius)
+[ ] Implement isInsideShape(x, y, cx, cy, radius, shape)
+[ ] Implement placeShapedObstacles(arena, w, h, shape)
+[ ] Verify shape is visually clear and recognizable
+
+MARKER PLACEMENT:
+[ ] Implement placeMarkersInShape(arena, w, h, count, shape)
+[ ] Use rejection sampling with attempt limit
+[ ] Verify all markers are inside open area
+[ ] Verify all markers are reachable from any start position
+
+ROBOT BEHAVIOR:
+[ ] Modify exploreAndCollect() to check countMarkers() == 0
+[ ] Add early termination when all markers collected
+[ ] Modify runSimulation() to remove deliverToCorner()
+[ ] Verify robot stops at last marker location
+
+CODE QUALITY:
+[ ] All functions <15 lines
+[ ] Compile with gcc -Wall -Werror (zero warnings)
+[ ] No unused variables or functions
+[ ] No commented-out code
+[ ] Descriptive variable and function names
+[ ] Minimal comments, self-documenting code
+[ ] Multiple .c/.h files used appropriately
+
+TESTING:
+[ ] Visual: Shape is clear and recognizable
+[ ] Visual: Markers only in open area
+[ ] Functional: Robot collects all markers
+[ ] Functional: Robot stops after collection (no delivery)
+[ ] Functional: Works with arena sizes 12-18
+[ ] Functional: Works with 1-7 markers
+[ ] Performance: Animation smooth (100-300ms sleep)
+[ ] Performance: No background flickering
+
+DOCUMENTATION:
+[ ] Update readMe.txt with Stage 5 description
+[ ] Include compile command
+[ ] Include run command
+[ ] Keep to 1 page maximum
+
+=============================================================================
+END OF REQUIREMENTS DOCUMENT
+=============================================================================
+
+This requirements document is based entirely on explicit statements from
+official course materials. All assumptions and design decisions are clearly
+labeled and justified with reference to the specifications.
+
+Stage 5 is complete when:
+1. All functional requirements are met (shaped arena, markers inside, collect and stop)
+2. All code quality requirements are met (functions <15 lines, zero warnings)
+3. All testing criteria pass (visual, functional, compilation)
+4. All prohibited practices are avoided
+5. Submission package is properly formatted
+
+Grade target: 80-89 (Really Outstanding) based on:
+- Complete implementation of all 5 stages
+- Novel features (parameterized shapes, trail visualization, optimized algorithm)
+- Exceptional code quality (100% function length compliance, zero warnings)
+- Professional design patterns (ExplorationContext, shape abstraction)

@@ -116,18 +116,27 @@ static int bfsSearch(int arena[][MAX_ARENA_SIZE], int w, int h,
     return 0;
 }
 
+/* Initialize pathfinding data structures */
+static void initPathfinding(int visited[][MAX_ARENA_SIZE], Queue *queue) {
+    for (int i = 0; i < MAX_ARENA_SIZE; i++) {
+        for (int j = 0; j < MAX_ARENA_SIZE; j++) {
+            visited[i][j] = 0;
+        }
+    }
+    initQueue(queue);
+}
+
 /* Find shortest path using BFS - main interface function */
 int findPath(int arena[][MAX_ARENA_SIZE], int startX, int startY,
              int endX, int endY, Path *path) {
-    int visited[MAX_ARENA_SIZE][MAX_ARENA_SIZE] = {0};
+    int visited[MAX_ARENA_SIZE][MAX_ARENA_SIZE];
     int parentX[MAX_ARENA_SIZE][MAX_ARENA_SIZE];
     int parentY[MAX_ARENA_SIZE][MAX_ARENA_SIZE];
     Queue queue;
-    initQueue(&queue);
+    initPathfinding(visited, &queue);
 
-    int w = MAX_ARENA_SIZE, h = MAX_ARENA_SIZE;
-    if (bfsSearch(arena, w, h, startX, startY, endX, endY,
-                  visited, parentX, parentY, &queue)) {
+    if (bfsSearch(arena, MAX_ARENA_SIZE, MAX_ARENA_SIZE, startX, startY,
+                  endX, endY, visited, parentX, parentY, &queue)) {
         reconstructPath(parentX, parentY, startX, startY, endX, endY, path);
         return 1;
     }

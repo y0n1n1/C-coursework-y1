@@ -23,12 +23,10 @@ void parseArgs(Robot *robot, int argc, char **argv,
                int arena[][MAX_ARENA_SIZE], int w, int h);
 void setupGame(int arena[][MAX_ARENA_SIZE], int *w, int *h);
 void runSimulation(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h);
-int atCorner(Robot *robot, int width, int height);
 
-/* Stage 4: Exploration and pathfinding */
+/* Stage 5: Exploration and pathfinding with shaped arena */
 void followPath(Robot *robot, int arena[][MAX_ARENA_SIZE], Path *path, int w, int h);
 void exploreAndCollect(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h);
-void deliverToCorner(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h);
 
 int main(int argc, char **argv) {
     int arena[MAX_ARENA_SIZE][MAX_ARENA_SIZE];
@@ -49,10 +47,9 @@ void setupGame(int arena[][MAX_ARENA_SIZE], int *w, int *h) {
     setWindowSize(*w * TILE_SIZE, *h * TILE_SIZE);
     initArena(arena, *w, *h);
     initMovementTrail(&g_trail);
-    int obstacleCount = (*w + *h) / 4 + rand() % 5;
     int markerCount = 3 + rand() % 5;
-    placeObstacles(arena, *w, *h, obstacleCount);
-    placeMultipleMarkers(arena, *w, *h, markerCount);
+    placeShapedObstacles(arena, *w, *h, SHAPE_CIRCLE);
+    placeMarkersInShape(arena, *w, *h, markerCount, SHAPE_CIRCLE);
     drawBackground(arena, *w, *h);
     foreground();
 }
@@ -72,10 +69,9 @@ void parseArgs(Robot *robot, int argc, char **argv,
     }
 }
 
-/* Stage 4: Explore and collect markers, then deliver to corner */
+/* Stage 5: Explore and collect markers, stop when done (no delivery) */
 void runSimulation(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) {
     exploreAndCollect(robot, arena, w, h);
-    deliverToCorner(robot, arena, w, h);
 }
 
 /* Check if tile is visitable and unvisited */
@@ -150,8 +146,8 @@ static void moveToAdjacent(ExplorationContext *ctx, int targetX, int targetY) {
     recordMovement(&g_trail, ctx->robot->x, ctx->robot->y, ctx->robot->direction);
     ctx->visited[ctx->robot->y][ctx->robot->x] = 1;
     collectAtPosition(ctx->robot, ctx->arena, ctx->width, ctx->height);
-    drawMovementTrails(&g_trail, ctx->width, ctx->height);
     drawRobot(ctx->robot);
+    drawMovementTrails(&g_trail, ctx->width, ctx->height);
     sleep(ANIMATION_DELAY);
 }
 
@@ -166,8 +162,8 @@ static void followAndCollect(Robot *robot, int arena[][MAX_ARENA_SIZE],
         recordMovement(&g_trail, robot->x, robot->y, robot->direction);
         visited[robot->y][robot->x] = 1;
         collectAtPosition(robot, arena, w, h);
-        drawMovementTrails(&g_trail, w, h);
         drawRobot(robot);
+        drawMovementTrails(&g_trail, w, h);
         sleep(ANIMATION_DELAY);
     }
 }
@@ -202,52 +198,22 @@ void exploreAndCollect(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) 
     collectAtPosition(robot, arena, w, h);
 
     while (tryAdjacentMove(&ctx) || tryJumpToUnvisited(&ctx)) {
-        ;
+        if (countMarkers(arena, w, h) == 0) {
+            break;
+        }
     }
 }
 
-/* Drop all markers with visual feedback */
-static void dropAllMarkers(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) {
-    while (markerCount(robot) > 0) {
-        dropMarker(robot, arena);
-        drawBackground(arena, w, h);
-        foreground();
-        drawMovementTrails(&g_trail, w, h);
-        drawRobot(robot);
-        sleep(ANIMATION_DELAY);
-    }
-}
 
-/* Navigate to corner and drop all markers */
-void deliverToCorner(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) {
-    if (markerCount(robot) == 0) return;
-
-    int cornerX = w - 2, cornerY = h - 2;
-    Path path;
-    if (findPath(arena, robot->x, robot->y, cornerX, cornerY, &path)) {
-        followPath(robot, arena, &path, w, h);
-    }
-    dropAllMarkers(robot, arena, w, h);
-}
-
-/* Check if robot is at any corner of the arena */
-int atCorner(Robot *robot, int width, int height) {
-    int x = robot->x, y = robot->y;
-    return (x == 1 && y == 1) || (x == width-2 && y == 1) ||
-           (x == 1 && y == height-2) || (x == width-2 && y == height-2);
-}
-
-/* Follow path without marking visited (for delivery) */
+/* Follow path without marking visited */
 void followPath(Robot *robot, int arena[][MAX_ARENA_SIZE], Path *path, int w, int h) {
     for (int i = 0; i < path->length; i++) {
         char dir = getDirection(robot->x, robot->y, path->x[i], path->y[i]);
         turnToDirection(robot, dir);
         forward(robot, arena);
         recordMovement(&g_trail, robot->x, robot->y, robot->direction);
-        drawBackground(arena, w, h);
-        foreground();
-        drawMovementTrails(&g_trail, w, h);
         drawRobot(robot);
+        drawMovementTrails(&g_trail, w, h);
         sleep(ANIMATION_DELAY);
     }
 }
