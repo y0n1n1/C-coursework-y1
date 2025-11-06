@@ -6,6 +6,32 @@ Build a robot that navigates a tile-based arena, collects markers, avoids obstac
 
 ---
 
+## Project Status
+
+**✅ Stage 1 Complete** - Rectangle arena, wall-adjacent marker, wall-follow algorithm
+**✅ Stage 2 Complete** - Random size arena, marker pickup/drop, delivery to corner
+
+**Next:** Stage 3 - Marker anywhere (not just walls), more complex pathfinding
+
+**Current Structure:**
+```
+program/
+├── main.c          - Main program & wall-following algorithm
+├── robot.c/h       - Robot API (8 functions)
+├── arena.c/h       - Arena initialization & drawing
+├── graphics.c/h    - Drawing library (provided)
+└── readme.md       - Documentation
+```
+
+**Compile & Run:**
+```bash
+cd program
+gcc -Wall -Werror -o robot main.c robot.c arena.c graphics.c
+./robot | java -jar drawapp-4.5.jar
+```
+
+---
+
 ## Key Definitions
 
 **Arena:** Tile-based grid surrounded by solid walls. Tiles are square, robot moves from center to center.
@@ -66,10 +92,10 @@ int markerCount(...)    // Return markers held
 
 ## Implementation Stages
 
-**Stage 1** (50-59): Rectangle arena, wall-adjacent marker, wall-follow algorithm  
-**Stage 2** (60-69): Random size arena, collect marker → corner → drop  
-**Stage 3** (70+): Marker anywhere (not just walls), more complex pathfinding  
-**Stage 4** (70-79): Multiple obstacles + markers, robust algorithm  
+**✅ Stage 1** (50-59): Rectangle arena, wall-adjacent marker, wall-follow algorithm - **COMPLETE**
+**✅ Stage 2** (60-69): Random size arena, collect marker → corner → drop - **COMPLETE**
+**Stage 3** (70+): Marker anywhere (not just walls), more complex pathfinding
+**Stage 4** (70-79): Multiple obstacles + markers, robust algorithm
 **Stage 5** (80+): Obstacles form shapes (circle), collect all markers
 
 **IMPORTANT Stage Details:**
