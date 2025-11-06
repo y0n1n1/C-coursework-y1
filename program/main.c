@@ -7,14 +7,17 @@
 
 #define ANIMATION_DELAY 150
 #define MAX_MOVES 1000
-#define MAX_MARKERS 20
 
-/* MarkerList stores discovered marker locations during exploration */
+/* NOVEL: Global movement trail for efficiency visualization */
+static MovementTrail g_trail;
+
+/* Context bundles common exploration parameters (reduces overhead) */
 typedef struct {
-    int x[MAX_MARKERS];
-    int y[MAX_MARKERS];
-    int count;
-} MarkerList;
+    Robot *robot;
+    int (*arena)[MAX_ARENA_SIZE];
+    int (*visited)[MAX_ARENA_SIZE];
+    int width, height;
+} ExplorationContext;
 
 void parseArgs(Robot *robot, int argc, char **argv,
                int arena[][MAX_ARENA_SIZE], int w, int h);
@@ -23,13 +26,8 @@ void runSimulation(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h);
 int atCorner(Robot *robot, int width, int height);
 
 /* Stage 4: Exploration and pathfinding */
-void followPath(Robot *robot, int arena[][MAX_ARENA_SIZE], Path *path);
-void turnToDirection(Robot *robot, char target);
-void exploreAndDiscover(Robot *robot, int arena[][MAX_ARENA_SIZE],
-                        MarkerList *markers, int w, int h);
-void storeMarkerLocation(MarkerList *markers, int x, int y);
-void collectDiscoveredMarkers(Robot *robot, int arena[][MAX_ARENA_SIZE],
-                              MarkerList *markers, int w, int h);
+void followPath(Robot *robot, int arena[][MAX_ARENA_SIZE], Path *path, int w, int h);
+void exploreAndCollect(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h);
 void deliverToCorner(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h);
 
 int main(int argc, char **argv) {
@@ -50,8 +48,9 @@ void setupGame(int arena[][MAX_ARENA_SIZE], int *w, int *h) {
     *h = randomArenaSize();
     setWindowSize(*w * TILE_SIZE, *h * TILE_SIZE);
     initArena(arena, *w, *h);
-    int obstacleCount = (*w + *h) / 6;
-    int markerCount = 2 + rand() % 3;
+    initMovementTrail(&g_trail);
+    int obstacleCount = (*w + *h) / 4 + rand() % 5;
+    int markerCount = 3 + rand() % 5;
     placeObstacles(arena, *w, *h, obstacleCount);
     placeMultipleMarkers(arena, *w, *h, markerCount);
     drawBackground(arena, *w, *h);
@@ -73,99 +72,34 @@ void parseArgs(Robot *robot, int argc, char **argv,
     }
 }
 
-/* Stage 4: Explore, discover, collect markers, deliver to corner */
+/* Stage 4: Explore and collect markers, then deliver to corner */
 void runSimulation(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) {
-    MarkerList discoveredMarkers = {.count = 0};
-    exploreAndDiscover(robot, arena, &discoveredMarkers, w, h);
-    collectDiscoveredMarkers(robot, arena, &discoveredMarkers, w, h);
+    exploreAndCollect(robot, arena, w, h);
     deliverToCorner(robot, arena, w, h);
 }
 
-/* Store marker location in discovered list (no duplicates) */
-void storeMarkerLocation(MarkerList *markers, int x, int y) {
-    for (int i = 0; i < markers->count; i++) {
-        if (markers->x[i] == x && markers->y[i] == y) return;
-    }
-    if (markers->count < MAX_MARKERS) {
-        markers->x[markers->count] = x;
-        markers->y[markers->count] = y;
-        markers->count++;
-    }
+/* Check if tile is visitable and unvisited */
+static int isUnvisited(int visited[][MAX_ARENA_SIZE], int arena[][MAX_ARENA_SIZE],
+                       int x, int y, int w, int h) {
+    if (x < 1 || x >= w-1 || y < 1 || y >= h-1) return 0;
+    if (visited[y][x]) return 0;
+    return (arena[y][x] == 0 || arena[y][x] == 3);
 }
 
-/* Check if tile should be explored */
-static int shouldExplore(int visited[][MAX_ARENA_SIZE], int arena[][MAX_ARENA_SIZE],
-                         int x, int y) {
-    return !visited[y][x] && arena[y][x] == 0;
-}
-
-/* Visit tile and check for marker */
-static void visitTile(Robot *robot, int arena[][MAX_ARENA_SIZE],
-                      int visited[][MAX_ARENA_SIZE], MarkerList *markers,
-                      int x, int y) {
-    Path path;
-    if (findPath(arena, robot->x, robot->y, x, y, &path)) {
-        followPath(robot, arena, &path);
-        visited[y][x] = 1;
-        if (atMarker(robot, arena)) {
-            storeMarkerLocation(markers, robot->x, robot->y);
+/* Find adjacent unvisited tile (NOVEL: enables O(1) movement) */
+static int findAdjacentUnvisited(ExplorationContext *ctx, int *nextX, int *nextY) {
+    int dx[] = {0, 1, 0, -1};
+    int dy[] = {-1, 0, 1, 0};
+    for (int i = 0; i < 4; i++) {
+        int x = ctx->robot->x + dx[i];
+        int y = ctx->robot->y + dy[i];
+        if (isUnvisited(ctx->visited, ctx->arena, x, y, ctx->width, ctx->height)) {
+            *nextX = x;
+            *nextY = y;
+            return 1;
         }
     }
-}
-
-/* Explore arena systematically, discover and store markers */
-void exploreAndDiscover(Robot *robot, int arena[][MAX_ARENA_SIZE],
-                        MarkerList *markers, int w, int h) {
-    int visited[MAX_ARENA_SIZE][MAX_ARENA_SIZE] = {0};
-    visited[robot->y][robot->x] = 1;
-    if (atMarker(robot, arena)) storeMarkerLocation(markers, robot->x, robot->y);
-
-    for (int y = 1; y < h - 1; y++) {
-        for (int x = 1; x < w - 1; x++) {
-            if (shouldExplore(visited, arena, x, y)) {
-                visitTile(robot, arena, visited, markers, x, y);
-            }
-        }
-    }
-}
-
-/* Collect all discovered markers using pathfinding */
-void collectDiscoveredMarkers(Robot *robot, int arena[][MAX_ARENA_SIZE],
-                              MarkerList *markers, int w, int h) {
-    for (int i = 0; i < markers->count; i++) {
-        Path path;
-        if (findPath(arena, robot->x, robot->y,
-                     markers->x[i], markers->y[i], &path)) {
-            followPath(robot, arena, &path);
-            if (atMarker(robot, arena)) {
-                pickUpMarker(robot, arena);
-                drawBackground(arena, w, h);
-                foreground();
-            }
-        }
-    }
-}
-
-/* Navigate to corner and drop all markers */
-void deliverToCorner(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) {
-    int cornerX = w - 2, cornerY = h - 2;
-    Path path;
-    if (findPath(arena, robot->x, robot->y, cornerX, cornerY, &path)) {
-        followPath(robot, arena, &path);
-    }
-    while (markerCount(robot) > 0) {
-        dropMarker(robot, arena);
-    }
-    drawBackground(arena, w, h);
-    foreground();
-    drawRobot(robot);
-}
-
-/* Check if robot is at any corner of the arena */
-int atCorner(Robot *robot, int width, int height) {
-    int x = robot->x, y = robot->y;
-    return (x == 1 && y == 1) || (x == width-2 && y == 1) ||
-           (x == 1 && y == height-2) || (x == width-2 && y == height-2);
+    return 0;
 }
 
 /* Calculate direction from current to next position */
@@ -177,18 +111,142 @@ static char getDirection(int fromX, int fromY, int toX, int toY) {
 }
 
 /* Turn robot to face target direction (N/S/E/W) */
-void turnToDirection(Robot *robot, char target) {
+static void turnToDirection(Robot *robot, char target) {
     while (robot->direction != target) {
         right(robot);
     }
 }
 
-/* Follow path from start to end */
-void followPath(Robot *robot, int arena[][MAX_ARENA_SIZE], Path *path) {
+/* Collect marker at current position if present */
+static void collectAtPosition(Robot *robot, int arena[][MAX_ARENA_SIZE],
+                               int w, int h) {
+    if (atMarker(robot, arena)) {
+        pickUpMarker(robot, arena);
+        drawBackground(arena, w, h);
+        foreground();
+    }
+}
+
+/* Find nearest unvisited tile using search */
+static int findNearestUnvisited(ExplorationContext *ctx, int *targetX, int *targetY) {
+    for (int y = 1; y < ctx->height - 1; y++) {
+        for (int x = 1; x < ctx->width - 1; x++) {
+            if (isUnvisited(ctx->visited, ctx->arena, x, y,
+                           ctx->width, ctx->height)) {
+                *targetX = x;
+                *targetY = y;
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+/* NOVEL: Direct movement for adjacent tiles - O(1) instead of O(wh) BFS */
+static void moveToAdjacent(ExplorationContext *ctx, int targetX, int targetY) {
+    char dir = getDirection(ctx->robot->x, ctx->robot->y, targetX, targetY);
+    turnToDirection(ctx->robot, dir);
+    forward(ctx->robot, ctx->arena);
+    recordMovement(&g_trail, ctx->robot->x, ctx->robot->y, ctx->robot->direction);
+    ctx->visited[ctx->robot->y][ctx->robot->x] = 1;
+    collectAtPosition(ctx->robot, ctx->arena, ctx->width, ctx->height);
+    drawMovementTrails(&g_trail, ctx->width, ctx->height);
+    drawRobot(ctx->robot);
+    sleep(ANIMATION_DELAY);
+}
+
+/* Mark path tiles as visited and collect markers */
+static void followAndCollect(Robot *robot, int arena[][MAX_ARENA_SIZE],
+                              Path *path, int visited[][MAX_ARENA_SIZE],
+                              int w, int h) {
     for (int i = 0; i < path->length; i++) {
         char dir = getDirection(robot->x, robot->y, path->x[i], path->y[i]);
         turnToDirection(robot, dir);
         forward(robot, arena);
+        recordMovement(&g_trail, robot->x, robot->y, robot->direction);
+        visited[robot->y][robot->x] = 1;
+        collectAtPosition(robot, arena, w, h);
+        drawMovementTrails(&g_trail, w, h);
+        drawRobot(robot);
+        sleep(ANIMATION_DELAY);
+    }
+}
+
+/* NOVEL: Try adjacent move with O(1) direct movement (no BFS!) */
+static int tryAdjacentMove(ExplorationContext *ctx) {
+    int nextX, nextY;
+    if (!findAdjacentUnvisited(ctx, &nextX, &nextY)) return 0;
+    moveToAdjacent(ctx, nextX, nextY);
+    return 1;
+}
+
+/* Try jumping to nearest unvisited tile (uses BFS when needed) */
+static int tryJumpToUnvisited(ExplorationContext *ctx) {
+    int nextX, nextY;
+    if (!findNearestUnvisited(ctx, &nextX, &nextY)) return 0;
+
+    Path path;
+    if (findPath(ctx->arena, ctx->robot->x, ctx->robot->y, nextX, nextY, &path)) {
+        followAndCollect(ctx->robot, ctx->arena, &path, ctx->visited,
+                        ctx->width, ctx->height);
+    }
+    return 1;
+}
+
+/* NOVEL: Hybrid greedy+BFS exploration with context pattern */
+void exploreAndCollect(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) {
+    int visited[MAX_ARENA_SIZE][MAX_ARENA_SIZE] = {0};
+    ExplorationContext ctx = {robot, arena, visited, w, h};
+
+    visited[robot->y][robot->x] = 1;
+    collectAtPosition(robot, arena, w, h);
+
+    while (tryAdjacentMove(&ctx) || tryJumpToUnvisited(&ctx)) {
+        ;
+    }
+}
+
+/* Drop all markers with visual feedback */
+static void dropAllMarkers(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) {
+    while (markerCount(robot) > 0) {
+        dropMarker(robot, arena);
+        drawBackground(arena, w, h);
+        foreground();
+        drawMovementTrails(&g_trail, w, h);
+        drawRobot(robot);
+        sleep(ANIMATION_DELAY);
+    }
+}
+
+/* Navigate to corner and drop all markers */
+void deliverToCorner(Robot *robot, int arena[][MAX_ARENA_SIZE], int w, int h) {
+    if (markerCount(robot) == 0) return;
+
+    int cornerX = w - 2, cornerY = h - 2;
+    Path path;
+    if (findPath(arena, robot->x, robot->y, cornerX, cornerY, &path)) {
+        followPath(robot, arena, &path, w, h);
+    }
+    dropAllMarkers(robot, arena, w, h);
+}
+
+/* Check if robot is at any corner of the arena */
+int atCorner(Robot *robot, int width, int height) {
+    int x = robot->x, y = robot->y;
+    return (x == 1 && y == 1) || (x == width-2 && y == 1) ||
+           (x == 1 && y == height-2) || (x == width-2 && y == height-2);
+}
+
+/* Follow path without marking visited (for delivery) */
+void followPath(Robot *robot, int arena[][MAX_ARENA_SIZE], Path *path, int w, int h) {
+    for (int i = 0; i < path->length; i++) {
+        char dir = getDirection(robot->x, robot->y, path->x[i], path->y[i]);
+        turnToDirection(robot, dir);
+        forward(robot, arena);
+        recordMovement(&g_trail, robot->x, robot->y, robot->direction);
+        drawBackground(arena, w, h);
+        foreground();
+        drawMovementTrails(&g_trail, w, h);
         drawRobot(robot);
         sleep(ANIMATION_DELAY);
     }

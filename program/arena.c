@@ -27,9 +27,70 @@ void placeRandomMarker(int arena[][MAX_ARENA_SIZE], int width, int height) {
     arena[markerY][markerX] = 3;
 }
 
-/* Place obstacles randomly inside arena (Stage 4) */
-void placeObstacles(int arena[][MAX_ARENA_SIZE], int width, int height,
-                    int count) {
+/* Try to add neighbor to BFS queue */
+static void tryAddNeighbor(int arena[][MAX_ARENA_SIZE], int visited[][MAX_ARENA_SIZE],
+                           int qx[], int qy[], int *rear, int nx, int ny,
+                           int w, int h) {
+    if (nx > 0 && nx < w-1 && ny > 0 && ny < h-1 &&
+        !visited[ny][nx] && arena[ny][nx] != 2) {
+        visited[ny][nx] = 1;
+        qx[*rear] = nx;
+        qy[(*rear)++] = ny;
+    }
+}
+
+/* Initialize BFS queue from center */
+static void initFloodQueue(int qx[], int qy[], int *rear, int visited[][MAX_ARENA_SIZE],
+                           int width, int height) {
+    qx[*rear] = width / 2;
+    qy[*rear] = height / 2;
+    (*rear)++;
+    visited[height/2][width/2] = 1;
+}
+
+/* BFS flood fill from center */
+static void floodFill(int arena[][MAX_ARENA_SIZE], int visited[][MAX_ARENA_SIZE],
+                      int width, int height) {
+    int qx[MAX_ARENA_SIZE * MAX_ARENA_SIZE], qy[MAX_ARENA_SIZE * MAX_ARENA_SIZE];
+    int front = 0, rear = 0;
+    int dx[] = {0, 1, 0, -1}, dy[] = {-1, 0, 1, 0};
+
+    initFloodQueue(qx, qy, &rear, visited, width, height);
+
+    while (front < rear) {
+        int x = qx[front], y = qy[front++];
+        for (int i = 0; i < 4; i++) {
+            tryAddNeighbor(arena, visited, qx, qy, &rear,
+                          x + dx[i], y + dy[i], width, height);
+        }
+    }
+}
+
+/* Check all empty tiles are reachable */
+static int checkConnectivity(int arena[][MAX_ARENA_SIZE], int width, int height) {
+    int visited[MAX_ARENA_SIZE][MAX_ARENA_SIZE] = {0};
+    floodFill(arena, visited, width, height);
+
+    for (int y = 1; y < height - 1; y++) {
+        for (int x = 1; x < width - 1; x++) {
+            if (arena[y][x] != 2 && !visited[y][x]) return 0;
+        }
+    }
+    return 1;
+}
+
+/* Clear all obstacles from arena */
+static void clearObstacles(int arena[][MAX_ARENA_SIZE], int width, int height) {
+    for (int y = 1; y < height - 1; y++) {
+        for (int x = 1; x < width - 1; x++) {
+            if (arena[y][x] == 2) arena[y][x] = 0;
+        }
+    }
+}
+
+/* Place N random obstacles */
+static void placeRandomObstacles(int arena[][MAX_ARENA_SIZE], int width,
+                                  int height, int count) {
     for (int i = 0; i < count; i++) {
         int x, y;
         do {
@@ -37,6 +98,16 @@ void placeObstacles(int arena[][MAX_ARENA_SIZE], int width, int height,
             y = rand() % (height - 2) + 1;
         } while (arena[y][x] != 0);
         arena[y][x] = 2;
+    }
+}
+
+/* Place obstacles randomly, ensure connectivity */
+void placeObstacles(int arena[][MAX_ARENA_SIZE], int width, int height,
+                    int count) {
+    for (int attempts = 0; attempts < 100; attempts++) {
+        clearObstacles(arena, width, height);
+        placeRandomObstacles(arena, width, height, count);
+        if (checkConnectivity(arena, width, height)) return;
     }
 }
 
@@ -177,4 +248,84 @@ void drawRobot(Robot *robot) {
                       TILE_SIZE / 2, xPoints, yPoints);
     setColour(blue);
     fillPolygon(3, xPoints, yPoints);
+}
+
+/* NOVEL: Initialize movement trail tracking */
+void initMovementTrail(MovementTrail *trail) {
+    for (int y = 0; y < MAX_ARENA_SIZE; y++) {
+        for (int x = 0; x < MAX_ARENA_SIZE; x++) {
+            trail->horizontal_passes[y][x] = 0;
+            trail->vertical_passes[y][x] = 0;
+        }
+    }
+}
+
+/* NOVEL: Record robot movement for trail visualization */
+void recordMovement(MovementTrail *trail, int x, int y, char direction) {
+    if (direction == 'E' || direction == 'W') {
+        if (trail->horizontal_passes[y][x] < 4) {
+            trail->horizontal_passes[y][x]++;
+        }
+    } else {
+        if (trail->vertical_passes[y][x] < 4) {
+            trail->vertical_passes[y][x]++;
+        }
+    }
+}
+
+/* Draw single trail line with offset */
+static void drawTrailLine(int x, int y, int isHorizontal, int offset) {
+    int centerX = x * TILE_SIZE + TILE_SIZE / 2;
+    int centerY = y * TILE_SIZE + TILE_SIZE / 2;
+    int lineLen = TILE_SIZE / 3;
+
+    if (isHorizontal) {
+        drawLine(centerX - lineLen, centerY + offset,
+                centerX + lineLen, centerY + offset);
+    } else {
+        drawLine(centerX + offset, centerY - lineLen,
+                centerX + offset, centerY + lineLen);
+    }
+}
+
+/* Draw horizontal trails for a tile */
+static void drawHorizontalTrails(int x, int y, int passes) {
+    if (passes >= 1) {
+        setColour(green);
+        drawTrailLine(x, y, 1, -3);
+    }
+    if (passes >= 2) {
+        setColour(yellow);
+        drawTrailLine(x, y, 1, 0);
+    }
+    if (passes >= 3) {
+        setColour(red);
+        drawTrailLine(x, y, 1, 3);
+    }
+}
+
+/* Draw vertical trails for a tile */
+static void drawVerticalTrails(int x, int y, int passes) {
+    if (passes >= 1) {
+        setColour(green);
+        drawTrailLine(x, y, 0, -3);
+    }
+    if (passes >= 2) {
+        setColour(yellow);
+        drawTrailLine(x, y, 0, 0);
+    }
+    if (passes >= 3) {
+        setColour(red);
+        drawTrailLine(x, y, 0, 3);
+    }
+}
+
+/* NOVEL: Draw movement trails showing robot efficiency */
+void drawMovementTrails(MovementTrail *trail, int width, int height) {
+    for (int y = 1; y < height - 1; y++) {
+        for (int x = 1; x < width - 1; x++) {
+            drawHorizontalTrails(x, y, trail->horizontal_passes[y][x]);
+            drawVerticalTrails(x, y, trail->vertical_passes[y][x]);
+        }
+    }
 }

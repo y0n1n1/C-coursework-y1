@@ -1,0 +1,4 @@
+- Check full working stage 5. 
+- Ensure metrics.txt are maximized
+- make comment by comment review and keep only ones that point out things outside of normal behavior, and are truly relevant.
+- go through the full codebase and check that unecessary functions, variables, redundant actions, repetitive actions are all removed.

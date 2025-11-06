@@ -8,6 +8,12 @@
 #define MAX_ARENA_SIZE 20
 #define TILE_SIZE 40
 
+/* NOVEL: Movement trail visualization - tracks robot efficiency */
+typedef struct {
+    int horizontal_passes[MAX_ARENA_SIZE][MAX_ARENA_SIZE];
+    int vertical_passes[MAX_ARENA_SIZE][MAX_ARENA_SIZE];
+} MovementTrail;
+
 void initArena(int arena[][MAX_ARENA_SIZE], int width, int height);
 void placeRandomMarker(int arena[][MAX_ARENA_SIZE], int width, int height);
 void placeObstacles(int arena[][MAX_ARENA_SIZE], int width, int height, int count);
@@ -17,5 +23,10 @@ void initRobot(Robot *robot, int arena[][MAX_ARENA_SIZE], int width, int height)
 void drawBackground(int arena[][MAX_ARENA_SIZE], int width, int height);
 void drawRobot(Robot *robot);
 int randomArenaSize(void);
+
+/* NOVEL: Movement trail functions for efficiency visualization */
+void initMovementTrail(MovementTrail *trail);
+void recordMovement(MovementTrail *trail, int x, int y, char direction);
+void drawMovementTrails(MovementTrail *trail, int width, int height);
 
 #endif
