@@ -1,6 +1,6 @@
 #include "robot.h"
+#include "arena.h"
 
-/* Helper: calculate next position based on current direction */
 static void getNextPos(Robot *robot, int *newX, int *newY) {
     *newX = robot->x;
     *newY = robot->y;
@@ -10,11 +10,11 @@ static void getNextPos(Robot *robot, int *newX, int *newY) {
     else if (robot->direction == 'W') (*newX)--;
 }
 
-void forward(Robot *robot, int arena[][MAX_ARENA_SIZE]) {
+void forward(Robot *robot, Arena *arena) {
     int newX, newY;
     getNextPos(robot, &newX, &newY);
 
-    if (arena[newY][newX] != 1 && arena[newY][newX] != 2) {
+    if (arena->grid[newY][newX] != WALL && arena->grid[newY][newX] != OBSTACLE) {
         robot->x = newX;
         robot->y = newY;
     }
@@ -34,27 +34,29 @@ void right(Robot *robot) {
     else if (robot->direction == 'W') robot->direction = 'N';
 }
 
-int atMarker(Robot *robot, int arena[][MAX_ARENA_SIZE]) {
-    return arena[robot->y][robot->x] == 3;
+int atMarker(Robot *robot, Arena *arena) {
+    return arena->grid[robot->y][robot->x] == MARKER;
 }
 
-int canMoveForward(Robot *robot, int arena[][MAX_ARENA_SIZE]) {
+int canMoveForward(Robot *robot, Arena *arena) {
     int newX, newY;
     getNextPos(robot, &newX, &newY);
-    return arena[newY][newX] != 1 && arena[newY][newX] != 2;
+    return arena->grid[newY][newX] != WALL && arena->grid[newY][newX] != OBSTACLE;
 }
 
-void pickUpMarker(Robot *robot, int arena[][MAX_ARENA_SIZE]) {
-    if (arena[robot->y][robot->x] == 3) {
-        arena[robot->y][robot->x] = 0;
+void pickUpMarker(Robot *robot, Arena *arena) {
+    if (arena->grid[robot->y][robot->x] == MARKER) {
+        arena->grid[robot->y][robot->x] = EMPTY;
         robot->markers_held++;
+        arena->marker_count--;
     }
 }
 
-void dropMarker(Robot *robot, int arena[][MAX_ARENA_SIZE]) {
+void dropMarker(Robot *robot, Arena *arena) {
     if (robot->markers_held > 0) {
-        arena[robot->y][robot->x] = 3;
+        arena->grid[robot->y][robot->x] = MARKER;
         robot->markers_held--;
+        arena->marker_count++;
     }
 }
 
